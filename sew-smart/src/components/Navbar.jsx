@@ -7,6 +7,7 @@ import {
   HomeIcon,
   Bars3Icon,
   XMarkIcon,
+  UsersIcon,
 } from "@heroicons/react/24/outline";
 import AuthModal from "./AuthModal";
 import UploadModal from "./UploadModal";
@@ -66,6 +67,9 @@ export default function Navbar() {
                 <NavLink to="/" icon={HomeIcon}>
                   Feed
                 </NavLink>
+                <NavLink to="/designers" icon={UsersIcon}>
+                  Designers
+                </NavLink>
                 <NavLink to={`/profile/${user?.id}`} icon={UserIcon}>
                   Profile
                 </NavLink>
@@ -80,6 +84,9 @@ export default function Navbar() {
                 />
               </SignedIn>
               <SignedOut>
+                <NavLink to="/designers" icon={UsersIcon}>
+                  Designers
+                </NavLink>
                 <button
                   onClick={() => setIsAuthModalOpen(true)}
                   className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
@@ -111,6 +118,9 @@ export default function Navbar() {
                 <NavLink to="/" icon={HomeIcon}>
                   Feed
                 </NavLink>
+                <NavLink to="/designers" icon={UsersIcon}>
+                  Designers
+                </NavLink>
                 <NavLink to={`/profile/${user?.id}`} icon={UserIcon}>
                   Profile
                 </NavLink>
@@ -127,6 +137,9 @@ export default function Navbar() {
                 </div>
               </SignedIn>
               <SignedOut>
+                <NavLink to="/designers" icon={UsersIcon}>
+                  Designers
+                </NavLink>
                 <button
                   onClick={() => {
                     setIsAuthModalOpen(true);

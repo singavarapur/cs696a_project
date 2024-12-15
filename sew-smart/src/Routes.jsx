@@ -3,6 +3,8 @@ import { Routes as RouterRoutes, Route, Navigate } from "react-router-dom";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import Feed from "./pages/Feed";
 import Profile from "./pages/Profile";
+import DesignersPage from "./pages/DesignersPage";
+import DesignerDetail from "./pages/DesignerDetail";
 import { api } from "./services/api";
 
 const LoadingScreen = () => (
@@ -47,7 +49,6 @@ const ClerkUserSync = () => {
             bio: "",
             email: user.primaryEmailAddress?.emailAddress,
           };
-
           await api.createOrUpdateUser(userData);
           setSyncAttempted(true);
         } catch (error) {
@@ -56,11 +57,9 @@ const ClerkUserSync = () => {
         }
       }
     };
-
     syncUserWithDatabase();
   }, [isLoaded, isSignedIn, user, syncAttempted]);
 
-  // Display sync error to user
   if (syncError) {
     return (
       <div className="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
@@ -109,6 +108,9 @@ function Routes() {
             </PrivateRoute>
           }
         />
+        {/* Designer Routes - Available to all users */}
+        <Route path="/designers" element={<DesignersPage />} />
+        <Route path="/designers/:id" element={<DesignerDetail />} />
         <Route
           path="/sign-in"
           element={
