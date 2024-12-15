@@ -7,7 +7,6 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import { HeartIcon as HeartIconSolid } from "@heroicons/react/24/solid";
-import { api } from "../services/api";
 import PostModal from "../components/PostModal";
 
 function Feed() {
@@ -39,7 +38,7 @@ function Feed() {
   };
 
   const handleLike = async (postId) => {
-    if (!user) return; // Require authentication
+    if (!user) return;
 
     try {
       const response = await fetch(
@@ -107,6 +106,39 @@ function Feed() {
     } catch (error) {
       console.error("Error deleting post:", error);
       alert("Failed to delete post. Please try again.");
+    }
+  };
+
+  const handleDeleteComment = async (postId, commentId) => {
+    if (!user) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:5003/api/posts/${postId}/comments/${commentId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${await window.Clerk.session.getToken()}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to delete comment");
+      }
+
+      const updatedPost = await response.json();
+
+      // Update posts state with the updated post
+      setPosts(posts.map((post) => (post._id === postId ? updatedPost : post)));
+
+      // Update selected post if it's open in modal
+      if (selectedPost?._id === postId) {
+        setSelectedPost(updatedPost);
+      }
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      throw error;
     }
   };
 
@@ -319,6 +351,9 @@ function Feed() {
         onLike={handleLike}
         onAddComment={handleAddComment}
         onDelete={handleDeletePost}
+        onDeleteComment={(commentId) =>
+          handleDeleteComment(selectedPost._id, commentId)
+        }
       />
     </div>
   );

@@ -1,11 +1,19 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { HeartIcon, ChatBubbleOvalLeftIcon } from "@heroicons/react/24/outline";
 import { HeartIcon as HeartIconSolid } from "@heroicons/react/24/solid";
 import { useUser } from "@clerk/clerk-react";
 
-const PostModal = ({ isOpen, onClose, post, onLike, onAddComment }) => {
+const PostModal = ({
+  isOpen,
+  onClose,
+  post,
+  onLike,
+  onAddComment,
+  onDelete,
+  onDeleteComment,
+}) => {
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useUser();
@@ -24,6 +32,18 @@ const PostModal = ({ isOpen, onClose, post, onLike, onAddComment }) => {
       console.error("Error posting comment:", error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!window.confirm("Are you sure you want to delete this comment?")) {
+      return;
+    }
+    try {
+      await onDeleteComment(commentId);
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      alert("Failed to delete comment. Please try again.");
     }
   };
 
@@ -57,7 +77,7 @@ const PostModal = ({ isOpen, onClose, post, onLike, onAddComment }) => {
           <div className="w-[40%] flex flex-col h-[90vh]">
             {/* Post header */}
             <div className="p-4 border-b">
-              <div className="flex items-center">
+              <div className="flex items-center justify-between">
                 <Link
                   to={`/profile/${post.user?.clerkId}`}
                   className="flex items-center group"
@@ -75,6 +95,15 @@ const PostModal = ({ isOpen, onClose, post, onLike, onAddComment }) => {
                     <p className="text-sm text-gray-500">{post.category}</p>
                   </div>
                 </Link>
+                {user?.id === post.user?.clerkId && (
+                  <button
+                    onClick={() => onDelete(post._id)}
+                    className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                    title="Delete post"
+                  >
+                    <TrashIcon className="h-5 w-5" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -95,26 +124,38 @@ const PostModal = ({ isOpen, onClose, post, onLike, onAddComment }) => {
 
             {/* Comments section */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {post.comments.map((comment, index) => (
-                <div key={index} className="flex space-x-3">
-                  <img
-                    src={comment.user?.avatar || "/api/placeholder/32/32"}
-                    alt={comment.user?.name}
-                    className="h-8 w-8 rounded-full object-cover"
-                  />
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium text-sm">
-                        {comment.user?.name}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {new Date(comment.createdAt).toLocaleDateString()}
-                      </span>
+              {post.comments &&
+                post.comments.map((comment) => (
+                  <div key={comment._id} className="flex space-x-3">
+                    <img
+                      src={comment.user?.avatar || "/api/placeholder/32/32"}
+                      alt={comment.user?.name}
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium text-sm">
+                            {comment.user?.name}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {new Date(comment.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        {user?.id === comment.userId && (
+                          <button
+                            onClick={() => handleDeleteComment(comment._id)}
+                            className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                            title="Delete comment"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-700">{comment.content}</p>
                     </div>
-                    <p className="text-sm text-gray-700">{comment.content}</p>
                   </div>
-                </div>
-              ))}
+                ))}
             </div>
 
             {/* Post actions */}
@@ -131,12 +172,12 @@ const PostModal = ({ isOpen, onClose, post, onLike, onAddComment }) => {
                   )}
                   <span className="text-sm">{post.likes.length} likes</span>
                 </button>
-                <button className="flex items-center space-x-1">
+                <div className="flex items-center space-x-1">
                   <ChatBubbleOvalLeftIcon className="h-6 w-6" />
                   <span className="text-sm">
                     {post.comments.length} comments
                   </span>
-                </button>
+                </div>
               </div>
 
               {/* Add comment form */}
