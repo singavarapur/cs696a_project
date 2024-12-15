@@ -254,6 +254,47 @@ app.post(
   },
 );
 
+// Delete Post
+app.delete("/api/posts/:postId", authMiddleware, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.postId);
+
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    // Check if the user is the owner of the post
+    if (post.userId !== req.auth.userId) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to delete this post" });
+    }
+
+    // Delete the image from Digital Ocean Spaces if it exists
+    if (post.image && post.image.includes("digitaloceanspaces.com")) {
+      const s3Key = post.image.split("nyc3.digitaloceanspaces.com/")[1];
+      try {
+        await s3
+          .deleteObject({
+            Bucket: "sew-smart",
+            Key: s3Key,
+          })
+          .promise();
+      } catch (error) {
+        console.error("Error deleting image from storage:", error);
+      }
+    }
+
+    // Delete the post from database
+    await Post.findByIdAndDelete(req.params.postId);
+
+    res.json({ message: "Post deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting post:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Get User Posts
 app.get("/api/users/:userId/posts", authMiddleware, async (req, res) => {
   try {
@@ -370,6 +411,61 @@ app.post("/api/posts/:postId/comments", authMiddleware, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+app.delete(
+  "/api/posts/:postId/comments/:commentId",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const post = await Post.findById(req.params.postId);
+
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+
+      // Find the comment
+      const comment = post.comments.id(req.params.commentId);
+
+      if (!comment) {
+        return res.status(404).json({ message: "Comment not found" });
+      }
+
+      // Check if the user is the owner of the comment
+      if (comment.userId !== req.auth.userId) {
+        return res
+          .status(403)
+          .json({ message: "Not authorized to delete this comment" });
+      }
+
+      // Remove the comment
+      comment.deleteOne();
+      await post.save();
+
+      // Return updated post with user information
+      const postUser = await getUserInfo(post.userId);
+      const commentsWithUsers = await Promise.all(
+        post.comments.map(async (comment) => {
+          const commentUser = await getUserInfo(comment.userId);
+          return {
+            ...comment.toObject(),
+            user: commentUser,
+          };
+        }),
+      );
+
+      const postWithUsers = {
+        ...post.toObject(),
+        user: postUser,
+        comments: commentsWithUsers,
+      };
+
+      res.json(postWithUsers);
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      res.status(500).json({ message: error.message });
+    }
+  },
+);
 
 // Error handler
 app.use((err, req, res, next) => {

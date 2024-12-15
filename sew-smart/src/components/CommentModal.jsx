@@ -1,8 +1,14 @@
 import { useState } from "react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { useUser } from "@clerk/clerk-react";
 
-const CommentModal = ({ isOpen, onClose, post, onAddComment }) => {
+const CommentModal = ({
+  isOpen,
+  onClose,
+  post,
+  onAddComment,
+  onDeleteComment,
+}) => {
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useUser();
@@ -21,6 +27,18 @@ const CommentModal = ({ isOpen, onClose, post, onAddComment }) => {
       console.error("Error posting comment:", error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!window.confirm("Are you sure you want to delete this comment?")) {
+      return;
+    }
+    try {
+      await onDeleteComment(commentId);
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      alert("Failed to delete comment. Please try again.");
     }
   };
 
@@ -44,30 +62,41 @@ const CommentModal = ({ isOpen, onClose, post, onAddComment }) => {
           <div className="flex-1 overflow-y-auto p-6">
             <div className="space-y-6">
               {post.comments && post.comments.length > 0 ? (
-                [...post.comments].reverse().map((comment, index) => (
-                  <div key={index} className="flex space-x-3">
+                [...post.comments].reverse().map((comment) => (
+                  <div key={comment._id} className="flex space-x-3">
                     <img
                       src={comment.user?.avatar || "/api/placeholder/32/32"}
                       alt={comment.user?.name || "User"}
                       className="h-10 w-10 rounded-full object-cover"
                     />
                     <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium">
-                          {comment.user?.name}
-                        </span>
-                        <span className="text-sm text-gray-500">
-                          {new Date(comment.createdAt).toLocaleDateString(
-                            undefined,
-                            {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            },
-                          )}
-                        </span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium">
+                            {comment.user?.name}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            {new Date(comment.createdAt).toLocaleDateString(
+                              undefined,
+                              {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              },
+                            )}
+                          </span>
+                        </div>
+                        {user?.id === comment.userId && (
+                          <button
+                            onClick={() => handleDeleteComment(comment._id)}
+                            className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                            title="Delete comment"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                       <p className="text-sm text-gray-700 mt-1">
                         {comment.content}

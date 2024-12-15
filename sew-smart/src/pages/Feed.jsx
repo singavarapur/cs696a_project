@@ -4,21 +4,18 @@ import { useUser } from "@clerk/clerk-react";
 import {
   HeartIcon,
   ChatBubbleOvalLeftIcon,
-  BookmarkIcon,
-  ShareIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
-import {
-  HeartIcon as HeartIconSolid,
-  BookmarkIcon as BookmarkIconSolid,
-} from "@heroicons/react/24/solid";
-import CommentModal from "../components/CommentModal";
+import { HeartIcon as HeartIconSolid } from "@heroicons/react/24/solid";
+import { api } from "../services/api";
+import PostModal from "../components/PostModal";
 
 function Feed() {
   const [posts, setPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedPost, setSelectedPost] = useState(null);
-  const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
+  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const { user } = useUser();
 
   useEffect(() => {
@@ -77,9 +74,40 @@ function Feed() {
     }
   };
 
-  const handleComment = (post) => {
-    setSelectedPost(post);
-    setIsCommentModalOpen(true);
+  const handleDeletePost = async (postId) => {
+    if (!user) return;
+
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this post? This action cannot be undone.",
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://localhost:5003/api/posts/${postId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${await window.Clerk.session.getToken()}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to delete post");
+      }
+
+      // Remove the post from the posts array
+      setPosts(posts.filter((post) => post._id !== postId));
+      setSelectedPost(null);
+      setIsPostModalOpen(false);
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      alert("Failed to delete post. Please try again.");
+    }
   };
 
   const handleAddComment = async (comment) => {
@@ -109,7 +137,8 @@ function Feed() {
         ),
       );
 
-      setIsCommentModalOpen(false);
+      // Update selected post
+      setSelectedPost(updatedPost);
     } catch (error) {
       console.error("Error adding comment:", error);
     }
@@ -171,21 +200,44 @@ function Feed() {
             <p className="text-xs sm:text-sm text-gray-500">{post.category}</p>
           </div>
         </Link>
-        <span className="text-xs sm:text-sm text-gray-500">
-          {new Date(post.createdAt).toLocaleDateString()}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs sm:text-sm text-gray-500">
+            {new Date(post.createdAt).toLocaleDateString()}
+          </span>
+          {user?.id === post.user?.clerkId && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleDeletePost(post._id);
+              }}
+              className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+              title="Delete post"
+            >
+              <TrashIcon className="h-5 w-5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Post Image */}
-      <img
-        src={
-          post.image.startsWith("/uploads")
-            ? `http://localhost:5003${post.image}`
-            : post.image
-        }
-        className="w-full object-cover max-h-[600px]"
-        alt="Design"
-      />
+      <div
+        className="cursor-pointer"
+        onClick={() => {
+          setSelectedPost(post);
+          setIsPostModalOpen(true);
+        }}
+      >
+        <img
+          src={
+            post.image.startsWith("/uploads")
+              ? `http://localhost:5003${post.image}`
+              : post.image
+          }
+          className="w-full object-cover max-h-[600px]"
+          alt="Design"
+        />
+      </div>
 
       {/* Post Actions */}
       <div className="p-3 sm:p-4">
@@ -203,7 +255,10 @@ function Feed() {
               <span className="text-sm">{post.likes.length}</span>
             </button>
             <button
-              onClick={() => handleComment(post)}
+              onClick={() => {
+                setSelectedPost(post);
+                setIsPostModalOpen(true);
+              }}
               className="group flex items-center space-x-1"
             >
               <ChatBubbleOvalLeftIcon className="h-5 w-5 sm:h-6 sm:w-6 group-hover:text-indigo-500" />
@@ -254,11 +309,16 @@ function Feed() {
         </div>
       )}
 
-      <CommentModal
-        isOpen={isCommentModalOpen}
-        onClose={() => setIsCommentModalOpen(false)}
+      <PostModal
+        isOpen={isPostModalOpen}
+        onClose={() => {
+          setIsPostModalOpen(false);
+          setSelectedPost(null);
+        }}
         post={selectedPost}
+        onLike={handleLike}
         onAddComment={handleAddComment}
+        onDelete={handleDeletePost}
       />
     </div>
   );
