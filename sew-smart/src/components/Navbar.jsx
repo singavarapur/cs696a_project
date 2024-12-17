@@ -8,7 +8,9 @@ import {
   Bars3Icon,
   XMarkIcon,
   UsersIcon,
+  ShoppingCartIcon,
 } from "@heroicons/react/24/outline";
+import { useCart } from "../context/CartContext";
 import AuthModal from "./AuthModal";
 import UploadModal from "./UploadModal";
 
@@ -18,6 +20,7 @@ export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user } = useUser();
   const location = useLocation();
+  const { cartCount, setIsCartOpen } = useCart();
 
   const NavLink = ({ to, icon: Icon, children }) => (
     <Link
@@ -73,6 +76,17 @@ export default function Navbar() {
                 <NavLink to={`/profile/${user?.id}`} icon={UserIcon}>
                   Profile
                 </NavLink>
+                <button
+                  onClick={() => setIsCartOpen(true)}
+                  className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <ShoppingCartIcon className="h-6 w-6" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {cartCount}
+                    </span>
+                  )}
+                </button>
                 <UserButton
                   appearance={{
                     elements: {
@@ -124,6 +138,16 @@ export default function Navbar() {
                 <NavLink to={`/profile/${user?.id}`} icon={UserIcon}>
                   Profile
                 </NavLink>
+                <button
+                  onClick={() => {
+                    setIsCartOpen(true);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center space-x-2 p-2 w-full rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <ShoppingCartIcon className="h-5 w-5" />
+                  <span>Cart {cartCount > 0 && `(${cartCount})`}</span>
+                </button>
                 <div className="p-2">
                   <UserButton
                     appearance={{

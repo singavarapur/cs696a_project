@@ -112,8 +112,60 @@ const PostSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+const CartSchema = new mongoose.Schema({
+  userId: { type: String, required: true },
+  items: [
+    {
+      designId: String,
+      designerId: String,
+      title: String,
+      price: Number,
+      image: String,
+      quantity: { type: Number, default: 1 },
+    },
+  ],
+});
+
+const WishlistSchema = new mongoose.Schema({
+  userId: { type: String, required: true },
+  items: [
+    {
+      designId: String,
+      designerId: String,
+      title: String,
+      price: Number,
+      image: String,
+      addedAt: { type: Date, default: Date.now },
+    },
+  ],
+});
+
+const OrderSchema = new mongoose.Schema({
+  userId: { type: String, required: true },
+  items: [
+    {
+      designId: String,
+      designerId: String,
+      title: String,
+      price: Number,
+      image: String,
+      quantity: Number,
+    },
+  ],
+  totalAmount: Number,
+  status: {
+    type: String,
+    enum: ["pending", "processing", "shipped", "delivered"],
+    default: "pending",
+  },
+  createdAt: { type: Date, default: Date.now },
+});
+
 const User = mongoose.model("User", UserSchema);
 const Post = mongoose.model("Post", PostSchema);
+const Cart = mongoose.model("Cart", CartSchema);
+const Wishlist = mongoose.model("Wishlist", WishlistSchema);
+const Order = mongoose.model("Order", OrderSchema);
 
 // Helper function to get user info
 const getUserInfo = async (clerkId) => {
@@ -172,6 +224,154 @@ app.get("/api/users/:clerkId", authMiddleware, async (req, res) => {
     const user = await User.findOne({ clerkId: req.params.clerkId });
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Cart endpoints
+app.get("/api/cart", authMiddleware, async (req, res) => {
+  try {
+    let cart = await Cart.findOne({ userId: req.auth.userId });
+    if (!cart) {
+      cart = new Cart({ userId: req.auth.userId, items: [] });
+      await cart.save();
+    }
+    res.json(cart);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/api/cart", authMiddleware, async (req, res) => {
+  try {
+    const { designId, designerId, title, price, image, quantity } = req.body;
+    let cart = await Cart.findOne({ userId: req.auth.userId });
+
+    if (!cart) {
+      cart = new Cart({ userId: req.auth.userId, items: [] });
+    }
+
+    const existingItem = cart.items.find((item) => item.designId === designId);
+    if (existingItem) {
+      existingItem.quantity += quantity || 1;
+    } else {
+      cart.items.push({
+        designId,
+        designerId,
+        title,
+        price,
+        image,
+        quantity: quantity || 1,
+      });
+    }
+
+    await cart.save();
+    res.json(cart);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.delete("/api/cart/:designId", authMiddleware, async (req, res) => {
+  try {
+    const cart = await Cart.findOne({ userId: req.auth.userId });
+    if (!cart) {
+      return res.status(404).json({ message: "Cart not found" });
+    }
+
+    cart.items = cart.items.filter(
+      (item) => item.designId !== req.params.designId,
+    );
+    await cart.save();
+    res.json(cart);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Wishlist endpoints
+app.get("/api/wishlist", authMiddleware, async (req, res) => {
+  try {
+    let wishlist = await Wishlist.findOne({ userId: req.auth.userId });
+    if (!wishlist) {
+      wishlist = new Wishlist({ userId: req.auth.userId, items: [] });
+      await wishlist.save();
+    }
+    res.json(wishlist);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/api/wishlist", authMiddleware, async (req, res) => {
+  try {
+    const { designId, designerId, title, price, image } = req.body;
+    let wishlist = await Wishlist.findOne({ userId: req.auth.userId });
+
+    if (!wishlist) {
+      wishlist = new Wishlist({ userId: req.auth.userId, items: [] });
+    }
+
+    if (!wishlist.items.find((item) => item.designId === designId)) {
+      wishlist.items.push({ designId, designerId, title, price, image });
+    }
+
+    await wishlist.save();
+    res.json(wishlist);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.delete("/api/wishlist/:designId", authMiddleware, async (req, res) => {
+  try {
+    const wishlist = await Wishlist.findOne({ userId: req.auth.userId });
+    if (!wishlist) {
+      return res.status(404).json({ message: "Wishlist not found" });
+    }
+
+    wishlist.items = wishlist.items.filter(
+      (item) => item.designId !== req.params.designId,
+    );
+    await wishlist.save();
+    res.json(wishlist);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Order endpoints
+app.post("/api/orders", authMiddleware, async (req, res) => {
+  try {
+    const { items, totalAmount } = req.body;
+
+    const order = new Order({
+      userId: req.auth.userId,
+      items,
+      totalAmount,
+    });
+
+    await order.save();
+
+    // Clear the cart after successful order
+    await Cart.findOneAndUpdate(
+      { userId: req.auth.userId },
+      { $set: { items: [] } },
+    );
+
+    res.status(201).json(order);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/api/orders", authMiddleware, async (req, res) => {
+  try {
+    const orders = await Order.find({ userId: req.auth.userId }).sort({
+      createdAt: -1,
+    });
+    res.json(orders);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -263,14 +463,12 @@ app.delete("/api/posts/:postId", authMiddleware, async (req, res) => {
       return res.status(404).json({ message: "Post not found" });
     }
 
-    // Check if the user is the owner of the post
     if (post.userId !== req.auth.userId) {
       return res
         .status(403)
         .json({ message: "Not authorized to delete this post" });
     }
 
-    // Delete the image from Digital Ocean Spaces if it exists
     if (post.image && post.image.includes("digitaloceanspaces.com")) {
       const s3Key = post.image.split("nyc3.digitaloceanspaces.com/")[1];
       try {
@@ -285,7 +483,6 @@ app.delete("/api/posts/:postId", authMiddleware, async (req, res) => {
       }
     }
 
-    // Delete the post from database
     await Post.findByIdAndDelete(req.params.postId);
 
     res.json({ message: "Post deleted successfully" });
@@ -412,6 +609,7 @@ app.post("/api/posts/:postId/comments", authMiddleware, async (req, res) => {
   }
 });
 
+// Delete Comment
 app.delete(
   "/api/posts/:postId/comments/:commentId",
   authMiddleware,
@@ -466,6 +664,50 @@ app.delete(
     }
   },
 );
+
+// Update cart item quantity
+app.patch("/api/cart/:designId", authMiddleware, async (req, res) => {
+  try {
+    const { quantity } = req.body;
+    const cart = await Cart.findOne({ userId: req.auth.userId });
+
+    if (!cart) {
+      return res.status(404).json({ message: "Cart not found" });
+    }
+
+    const item = cart.items.find(
+      (item) => item.designId === req.params.designId,
+    );
+    if (!item) {
+      return res.status(404).json({ message: "Item not found in cart" });
+    }
+
+    item.quantity = quantity;
+    await cart.save();
+
+    res.json(cart);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get order by ID
+app.get("/api/orders/:orderId", authMiddleware, async (req, res) => {
+  try {
+    const order = await Order.findOne({
+      _id: req.params.orderId,
+      userId: req.auth.userId,
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 // Error handler
 app.use((err, req, res, next) => {
